@@ -145,7 +145,7 @@ python result_analysis/simulate_flow_pressure.py
 ``` 
 with an inlet pressure (given in 100mmHg by default)
 
-## Visualizations
+## Visualizations of Results
 3D gif animations of the reconstructed tree structure with rotation are available at 
 https://github.com/KidneyAnonymous/RenalArterialTree
 
