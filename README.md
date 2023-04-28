@@ -24,9 +24,9 @@ Run the following command for installation of the project
 # From GitHub
 git clone https://github.com/diku-dk/RenalArterialRecon
 
-pip install -e VesselGen 
+pip install -e RenalArterialRecon 
 
-cd VesselGen
+cd RenalArterialRecon
 ```
 It will automatically build the path and install the required packages listed in requirements.txt.
 
