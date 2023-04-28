@@ -6,6 +6,13 @@ from matplotlib import rcParams
 rcParams.update({'figure.autolayout': True})
 import scipy
 
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import rcParams
+rcParams.update({'figure.autolayout': True})
+
+
 class VtkMorphAnalyer(VtkNetworkAnalysis):
     def __init__(self, pt_file=None, root_loc=None, vsize=22.6):
         super().__init__(pt_file, root_loc, vsize)
@@ -47,7 +54,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
             self.tree[node1][node2]['edge_HS'] = min(self.tree.nodes[node1]['HS'], self.tree.nodes[node2]['HS'])
             self.tree[node1][node2]['root_order'] = -1
 
-
         self.coords = np.array(coords)
         self.radii = np.array(radii)
         self.pressure = np.array(pressure)
@@ -62,8 +68,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
 
         self.edge_mapping = {}
 
-        error_points = []
-
         for i, n in enumerate(self.connections):
             n1, n2 = n[0], n[1]
             self.HS.append(min(self.node_HS[n1], self.node_HS[n2]))
@@ -72,12 +76,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
             self.edge_mapping[f'{a}_{b}'] = i
             self.lengths.append(np.linalg.norm(self.coords[n1] - self.coords[n2]) * self.vsize)
 
-            if np.linalg.norm(self.coords[n1] - self.coords[n2]) == 0:
-                error_points.append(self.coords[n1])
-
-        if len(error_points) != 0:
-            error_points = np.array(error_points)
-            pyvista.PolyData(error_points).save('wrong_points1.vtk')
 
         self.HS = np.array(self.HS, dtype=int)
         self.levels = np.array(self.levels, dtype=int)
@@ -102,71 +100,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
             assert np.sum(self.levels == -1) == 1
             self.levels[np.where(self.levels == -1)[0][0]] = np.max(self.levels) + 1
 
-
-        from collections import defaultdict  
-
-        branching_dict = defaultdict(int)
-        try:
-            G = self.tree.to_undirected()
-        except:
-            G = self.tree
-        for node in G.nodes:
-            n_neighbors = len(list(G.neighbors(node))) - 1
-            if n_neighbors <= 1:
-                continue
-            else:
-                branching_dict[n_neighbors] += 1
-
-        for k, v in branching_dict.items():
-            plt.scatter(k, v)
-        plt.show()
-
-        plt.pie(branching_dict.values(), labels=branching_dict.keys(), autopct='%1.1f%%')
-        plt.savefig("branching_numbers.pdf", format="pdf", bbox_inches="tight")
-        plt.show()
-
-        print('ok')
-
-    def neighbor_AA_distance(self):
-        all_distance = []
-
-
-        for node in self.tree.nodes:
-            neighbors = list(self.tree.neighbors(node))
-            neighbor_orders = np.array([self.tree.nodes[n]['level'] for n in neighbors])
-            if -1 in neighbor_orders or 1 not in neighbor_orders:
-                continue
-
-            root = neighbors[np.where(neighbor_orders == np.max(neighbor_orders))[0][0]]
-
-            root_along_path = self.find_next_AA_branch([root])
-            if len(root_along_path) == 0:
-                continue
-            root_along_path = root_along_path + [node]
-            all_path_edges = [[root_along_path[i], root_along_path[i + 1]] for i in range(len(root_along_path) - 1)]
-            all_path_len = [np.array([self.tree[a][b]['length'] for (a, b) in all_path_edges])]
-            path_len = np.sum(all_path_len)
-            all_distance.append(path_len)
-
-        all_distance = np.array(all_distance)
-        plt.hist(all_distance[all_distance<1000], 20)
-        plt.show()
-
-    def find_next_AA_branch(self, path):
-        node = path[0]
-        neighbors = list(self.tree.neighbors(node))
-        neighbor_orders = np.array([self.tree.nodes[n]['level'] for n in neighbors])
-
-        if -1 in neighbor_orders:
-            return []
-
-        root = neighbors[np.where(neighbor_orders == np.max(neighbor_orders))[0][0]]
-        neighbors = list(self.tree.neighbors(node))
-        neighbor_orders = np.array([self.tree.nodes[n]['level'] for n in neighbors])
-        if 1 in neighbor_orders:
-            return [root] + path
-        else:
-            return self.find_next_AA_branch([root] + path)
 
     def find_root(self, node):
         neighbors = list(self.tree.neighbors(node))
@@ -205,159 +138,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
 
             self.tree[a][b]['root_order'] = self.tree[root][a]['edge_HS']
 
-
-    def boxplot(self, save=False, save_path=None):
-        """
-        Generates a boxplot for radius v.s. Strahler order.
-        """
-
-        raw_data = []
-        for i in range(len(self.connections)):
-            hs = self.HS[i]
-            r = self.radii[i]
-            raw_data.append([hs, r])
-        df = pd.DataFrame(raw_data, columns=['Strahler Order', 'Radius'])
-        title = 'Radius v.s. Strahler Order'
-        avg = []
-        std = []
-        raw_data = np.array(raw_data)
-        for i in sorted(np.unique(self.HS)):
-            cur = raw_data[raw_data[:, 0] == i][:, 1]
-            avg.append(np.mean(cur))
-            std.append(np.std(cur))
-
-        plt.figure()
-        plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o', color='black', capsize=5)
-        plt.title(title)
-        plt.xlabel('Strahler Order')
-        plt.ylabel('Mean Radius')
-
-        plt.savefig("radius.pdf", format="pdf", bbox_inches="tight")
-        
-        plt.show()
-
-        self.radius_avg = np.copy(avg)
-
-
-
-        raw_data = []
-        for i in range(len(self.connections)):
-            hs = self.HS[i]
-            r = self.lengths[i]
-            raw_data.append([hs, r])
-        title = 'Mean Length v.s. Strahler Order'
-        avg = []
-        std = []
-        raw_data = np.array(raw_data)
-        for i in sorted(np.unique(self.HS)):
-            cur = raw_data[raw_data[:, 0] == i][:, 1]
-            avg.append(np.mean(cur))
-            std.append(np.std(cur))
-        plt.figure()
-        plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o', color='black', capsize=5)
-        plt.title(title)
-        plt.xlabel('Strahler Order')
-        plt.ylabel('Mean Length')
-
-        plt.ylim((0, 1.05e4))
-
-        plt.savefig("mean_length.pdf", format="pdf", bbox_inches="tight")
-        
-        plt.show()
-
-
-        raw_data = []
-        all_length = self.all_branch_length()
-        for i in range(0, self.max_HS + 1):
-            for l in all_length[i - 1]:
-                raw_data.append([i, l])
-        df = pd.DataFrame(raw_data, columns=['Strahler Order', 'length'])
-        title = 'Length v.s. Strahler Order'
-        ylabel = 'Mean Length'
-
-        avg = [np.mean(i) for i in all_length]
-        std = [np.std(i) for i in all_length]
-
-        self.length_avg = np.copy(avg)
-
-
-        plt.figure()
-        plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o', color='black',
-                     capsize=5
-                     )
-        plt.title(title)
-        plt.xlabel('Strahler Order')
-        plt.ylabel('Branch Length')
-        plt.savefig("length.pdf", format="pdf", bbox_inches="tight")
-
-        plt.show()
-
-
-        raw_data = []
-        for i in range(len(self.connections)):
-            hs = self.HS[i]
-            r = self.flow[i]
-            raw_data.append([hs, r])
-
-        title = 'Flow v.s. Strahler Order'
-
-        avg = []
-        std = []
-        raw_data = np.array(raw_data)
-        for i in sorted(np.unique(self.HS)):
-            cur = raw_data[raw_data[:, 0] == i][:, 1]
-            avg.append(np.mean(cur))
-            std.append(np.std(cur))
-
-        plt.figure()
-        plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o', color='black', capsize=5)
-        plt.title(title)
-
-
-        raw_data = {'x': np.arange(0, self.max_HS + 1), 'y': avg}
-        df = pd.DataFrame(raw_data)
-        p = np.polyfit(raw_data['x'], np.log(raw_data['y']), 1)
-        y = np.exp(np.polyval(p, raw_data['x']))
-        plt.plot(raw_data['x'], y)
-
-        plt.xlabel('Strahler Order')
-        plt.ylabel('Flow')
-        plt.yscale('log')
-        plt.savefig("flow_stra.pdf", format="pdf", bbox_inches="tight")
-
-        plt.show()
-
-        if len(self.pressure) > 0:
-            raw_data = []
-            for i in range(len(self.connections)):
-                hs = self.HS[i]
-                
-                r = self.pressure_end[i]
-
-                raw_data.append([hs, r])
-
-            title = 'Pressure v.s. Strahler Order'
-
-            avg = []
-            std = []
-            raw_data = np.array(raw_data)
-            for i in sorted(np.unique(self.HS)):
-                cur = raw_data[raw_data[:, 0] == i][:, 1]
-                avg.append(np.mean(cur))
-                std.append(np.std(cur))
-
-                
-                
-
-            plt.figure()
-            plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o', color='black', capsize=5)
-            plt.title(title)
-            plt.xlabel('Strahler Order')
-            plt.ylabel('Pressure at the outlet of the vessel')
-            plt.savefig("pressure_stra.pdf", format="pdf", bbox_inches="tight")
-
-            plt.show()
-
     def radius_real(self, save=False, save_path=None):
         """
         Generates a boxplot for radius v.s. Strahler order.
@@ -370,6 +150,9 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
 
         self.radius_real_avg = np.copy(mean)
 
+
+        # mean *= 2
+        # std *= 2
 
         title = 'Radius v.s. Strahler Order'
         ylabel = 'Mean Radius'
@@ -384,7 +167,7 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         plt.show()
 
 
-    def everything_both(self):
+    def plot_everything(self):
         raw_data = []
         for i in range(len(self.connections)):
             hs = self.HS[i]
@@ -402,23 +185,21 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         plt.figure()
         title = 'Radius v.s. Strahler Order'
         plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o',
-                     
+                     # color='blue',
                      capsize=5, label='simulation')
 
         mean = [10.08, 13.9, 20.06, 29.87, 39.29, 44.23, 53.87, 86.15, 139.83, 191.42, 216.10]
         std = [0.14,     3.8,   6.9,   0.35,   1.08, 9.81, 12.51, 24.06,   20.11, 17.79, 4.74]
         mean = np.array(mean)
         std = np.array(std)
-        
-        
+
         plt.errorbar(np.arange(11), mean, yerr=std, fmt='D',
-                     
+                     # color='black',
                      capsize=5, label='measurements')
         plt.title(title)
         plt.xlabel('Strahler Order')
         plt.ylabel('Mean Radius')
         plt.legend()
-        
 
         plt.savefig("radius_everything.pdf", format="pdf", bbox_inches="tight")
         plt.show()
@@ -450,9 +231,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         plt.savefig("log_radius.pdf", format="pdf", bbox_inches="tight")
         plt.show()
 
-
-
-
         raw_data = []
         all_length = self.all_branch_length()
         for i in range(0, self.max_HS + 1):
@@ -464,7 +242,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
 
         plt.figure()
         plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o',
-                     
                      label='simulation',
                      capsize=5
                      )
@@ -481,7 +258,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         ylabel = 'Mean Length'
 
         plt.errorbar(np.arange(11), mean, yerr=std, fmt='D',
-                     
                      capsize=5, label='measurements')
         plt.title(title)
         plt.xlabel('Strahler Order')
@@ -492,62 +268,16 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         plt.show()
 
 
-
-        raw_data = []
-        for i in range(len(self.connections)):
-            hs = self.HS[i]
-            r = self.lengths[i]
-            raw_data.append([hs, r])
-        title = 'Mean Length v.s. Strahler Order'
-        avg = []
-        std = []
-        raw_data = np.array(raw_data)
-        for i in sorted(np.unique(self.HS)):
-            cur = raw_data[raw_data[:, 0] == i][:, 1]
-            avg.append(np.mean(cur))
-            std.append(np.std(cur))
-
-        plt.errorbar(np.arange(0, self.max_HS + 1), avg, yerr=std, fmt='o', color='black', capsize=5,
-                     label='simulation',
-                     )
-
-        plt.errorbar(np.arange(11), mean, yerr=std, fmt='D',
-                     
-                     capsize=5, label='measurements')
-
-        plt.title(title)
-        plt.xlabel('Strahler Order')
-        plt.ylabel('Mean Length')
-
-        
-
-        plt.savefig("mean_length.pdf", format="pdf", bbox_inches="tight")
-        
-        plt.legend()
-
-        plt.show()
-
-
-        res = scipy.stats.pearsonr(mean, avg)
-        print(f' length pearson = {res}')
-
-
-
         hs, count = np.unique(self.HS, return_counts=True)
         raw_data = {'x': hs, 'y': np.log(count)}
         df = pd.DataFrame(raw_data, index=hs)
-        title = 'Log Strahler Order Frequency'
-        ylabel = 'Log Frequency'
 
         sns.regplot('x', 'y', data=df, fit_reg=True, label='simulation', scatter_kws={"marker": "o",
-                                                                                
-                                                                 
+                                                                                # "color": "blue"
+                                                                 # "s": 100
                                                                  })
         mean = [29566, 13070, 4373, 1245, 578, 247, 90, 21, 6, 3, 1]
-        std = [5965, 2293, 664, 198, 71, 23, 6, 1, 0, 0, 0]
         mean = np.array(mean)
-        std = np.array(std) + 1e-10
-
 
         raw_data = {'x': np.arange(11), 'y': np.log(mean)}
         df = pd.DataFrame(raw_data, index=np.arange(11))
@@ -566,118 +296,13 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
 
 
         res = scipy.stats.pearsonr(mean, count, alternative='two-sided')
-        
+        # res = scipy.stats.pearsonr(mean, count, alternative='greater')
         print(f' freq pearson = {res}')
 
 
-        print('ok')
-
-    def length_real(self, save=False, save_path=None):
-        """
-        Generates a boxplot for radius v.s. Strahler order.
-        """
-
-        mean = [0.312, 0.423, 0.404, 0.656, 1.001, 0.511, 1.031, 2.516, 8.975, 1.440, 0.185]
-        std = [0.285, 0.283, 0.390, 0.286, 0.216, 0.00, 0.674, 2.053, 1.331, 0.647, 0]
-        mean = np.array(mean)
-        std = np.array(std)
-
-        mean *= 1e3
-        std *= 1e3
-
-        self.length_real_avg = np.copy(mean)
-
-
-        title = 'Length v.s. Strahler Order'
-        ylabel = 'Mean Length'
-
-        plt.errorbar(np.arange(11), mean, yerr=std, fmt='o', color='black', capsize=5)
-        plt.title(title)
-        plt.xlabel('Strahler Order')
-        plt.ylabel(ylabel)
-
-        plt.ylim((0, 1.05e4))
-
-        plt.savefig("length_real.pdf", format="pdf", bbox_inches="tight")
-        plt.show()
-
-    def strahler_real(self):
-        """
-        Generates a boxplot for radius v.s. Strahler order.
-        """
-
-        mean = [29566, 13070, 4373, 1245, 578, 247, 90, 21, 6, 3, 1]
-        std = [5965,    2293, 664,  198,    71, 23, 6,  1, 0, 0, 0]
-        mean = np.array(mean)
-        std = np.array(std) + 1e-10
-
-        title = 'Strahler Order'
-        ylabel = 'Estimated No.'
-
-        plt.errorbar(np.arange(11), mean, yerr=std, fmt='o', color='black', capsize=5)
-        plt.title(title)
-        plt.xlabel('Strahler Order')
-        plt.ylabel(ylabel)
-
-        plt.savefig("freq_real.pdf", format="pdf", bbox_inches="tight")
-
-        plt.show()
-
-        self.strahler_real_avg = np.copy(mean)
-
-        title = 'Strahler Order'
-        ylabel = 'Log Estimated No.'
-
-        plt.figure()
-
-        raw_data = {'x': np.arange(11), 'y': np.log(mean)}
-        df = pd.DataFrame(raw_data, index=np.arange(11))
-        title = 'Log Strahler Order Frequency'
-        ylabel = 'Log Frequency'
-        
-        
-        sns.regplot('x', 'y', data=df, fit_reg=True, scatter_kws={"marker": "D",
-                                                                 
-                                                                 })
-
-        plt.errorbar(np.arange(11), np.log(mean) - np.maximum(np.log(std), 0) ** 2/(2*mean**2), yerr=std/mean,
-                     fmt='o', color='black',
-                     capsize=5)
-        plt.title(title)
-        plt.xlabel('Strahler Order')
-        plt.ylabel(ylabel)
-        plt.savefig("log_freq_real.pdf", format="pdf", bbox_inches="tight")
-        plt.show()
-
-
-        raw_data = {'x': np.arange(11), 'y': mean}
-        df = pd.DataFrame(raw_data)
-        p = np.polyfit(raw_data['x'], np.log(raw_data['y']), 1)
-        y = np.exp(np.polyval(p, raw_data['x']))
-        plt.plot(raw_data['x'], y)
-        plt.errorbar(np.arange(11), mean, yerr=std,
-                     fmt='o', color='black',
-                     capsize=5)
-
-        plt.yscale('log')
-        plt.autoscale()
-        plt.savefig("log_freq_real_log.pdf", format="pdf", bbox_inches="tight")
-        plt.show()
-
-
-    def plot(self):
-        """
-        Generates histograms, scatterplots and boxplots..
-        """
-
-        save = False
-
-        self.boxplot()
 
         hs, count = np.unique(self.HS, return_counts=True)
-        
-        
-        
+
         cross_sections = np.array([np.sum(np.pi * self.radii[self.HS == hs[i]] ** 2) for i in range(len(hs))])
 
         plt.plot(np.sort(np.unique(hs)), cross_sections/1e6, marker='o', color='k')
@@ -705,10 +330,9 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         df = pd.DataFrame(raw_data, index=hs)
         title = 'Strahler Order Frequency'
         ylabel = 'Frequency'
-        
 
         sns.regplot('x', 'y', data=df, fit_reg=False, scatter_kws={"marker": "o", "color": "k"
-                                                                  
+                                                                  # "s": 100
                                                                   })
         plt.title(title)
         plt.xlabel('Strahler Order')
@@ -721,10 +345,9 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         df = pd.DataFrame(raw_data, index=hs)
         title = 'Log Strahler Order Frequency'
         ylabel = 'Log Frequency'
-        
-        
+
         sns.regplot('x', 'y', data=df, fit_reg=True, scatter_kws={"marker": "o", "color": "k"
-                                                                 
+                                                                 # "s": 100
                                                                  })
         plt.title(title)
         plt.xlabel('Strahler Order')
@@ -784,7 +407,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         print(f'root order frequency = {count[np.argsort(hs)]}')
         plt.show()
 
-
         plt.bar(hs, count,
                 width=0.9
                 )
@@ -795,7 +417,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
         plt.savefig("root_strahler_hist1.pdf", format="pdf", bbox_inches="tight")
         print(f'root order frequency = {count[np.argsort(hs)]}')
         plt.show()
-
 
         connectivity = {}
 
@@ -823,39 +444,94 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
             print(f'root order frequency = {count[np.argsort(hs)]}')
             plt.show()
 
-        
-    def mean_radius(self):
+
+    def length_real(self, save=False, save_path=None):
         """
-        Computes average radius for each Strahler order.
+        Generates a boxplot for radius v.s. Strahler order.
         """
 
-        mean_r = []
-        for i in range(0, self.max_HS + 1):
-            idices = np.nonzero(self.HS == i)[0]
-            count = np.count_nonzero(self.HS == i)
-            rad = [self.radii[idx] for idx in idices]
-            r_avg = np.mean(rad)
-            mean_r.append(r_avg)
-        return mean_r
+        mean = [0.312, 0.423, 0.404, 0.656, 1.001, 0.511, 1.031, 2.516, 8.975, 1.440, 0.185]
+        std = [0.285, 0.283, 0.390, 0.286, 0.216, 0.00, 0.674, 2.053, 1.331, 0.647, 0]
+        mean = np.array(mean)
+        std = np.array(std)
 
-    def mean_branch_length(self):
+        mean *= 1e3
+        std *= 1e3
+
+        self.length_real_avg = np.copy(mean)
+
+
+        title = 'Length v.s. Strahler Order'
+        ylabel = 'Mean Length'
+
+        plt.errorbar(np.arange(11), mean, yerr=std, fmt='o', color='black', capsize=5)
+        plt.title(title)
+        plt.xlabel('Strahler Order')
+        plt.ylabel(ylabel)
+
+        plt.ylim((0, 1.05e4))
+
+        plt.savefig("length_real.pdf", format="pdf", bbox_inches="tight")
+        plt.show()
+
+    def strahler_real(self):
         """
-        Computes average branch length for each Strahler order.
+        Generates a boxplot for radius v.s. Strahler order.
         """
 
-        mean_l = []
-        for i in range(0, self.max_HS + 1):
-            idices = np.nonzero(self.HS == i)[0]
-            HS_graph = nx.Graph()
-            ls = []
-            for idx in idices:
-                HS_graph.add_edge(self.connections[idx][0], self.connections[idx][1], length=self.lengths[idx])
-            for c in nx.connected_components(HS_graph):
-                sg = HS_graph.subgraph(c)
-                els = [HS_graph[e[0]][e[1]]['length'] for e in sg.edges]
-                ls.append(np.sum(els))
-            mean_l.append(np.mean(ls))
-        return mean_l
+        mean = [29566, 13070, 4373, 1245, 578, 247, 90, 21, 6, 3, 1]
+        std = [5965,    2293, 664,  198,    71, 23, 6,  1, 0, 0, 0]
+        mean = np.array(mean)
+        std = np.array(std) + 1e-10
+
+        title = 'Strahler Order'
+        ylabel = 'Estimated No.'
+
+        plt.errorbar(np.arange(11), mean, yerr=std, fmt='o', color='black', capsize=5)
+        plt.title(title)
+        plt.xlabel('Strahler Order')
+        plt.ylabel(ylabel)
+
+        plt.savefig("freq_real.pdf", format="pdf", bbox_inches="tight")
+
+        plt.show()
+
+        self.strahler_real_avg = np.copy(mean)
+
+        plt.figure()
+
+        raw_data = {'x': np.arange(11), 'y': np.log(mean)}
+        df = pd.DataFrame(raw_data, index=np.arange(11))
+        title = 'Log Strahler Order Frequency'
+        ylabel = 'Log Frequency'
+
+        sns.regplot('x', 'y', data=df, fit_reg=True, scatter_kws={"marker": "D",
+                                                                 # "s": 100
+                                                                 })
+
+        plt.errorbar(np.arange(11), np.log(mean) - np.maximum(np.log(std), 0) ** 2/(2*mean**2), yerr=std/mean,
+                     fmt='o', color='black',
+                     capsize=5)
+        plt.title(title)
+        plt.xlabel('Strahler Order')
+        plt.ylabel(ylabel)
+        plt.savefig("log_freq_real.pdf", format="pdf", bbox_inches="tight")
+        plt.show()
+
+        raw_data = {'x': np.arange(11), 'y': mean}
+        df = pd.DataFrame(raw_data)
+        p = np.polyfit(raw_data['x'], np.log(raw_data['y']), 1)
+        y = np.exp(np.polyval(p, raw_data['x']))
+        plt.plot(raw_data['x'], y)
+        plt.errorbar(np.arange(11), mean, yerr=std,
+                     fmt='o', color='black',
+                     capsize=5)
+
+        plt.yscale('log')
+        plt.autoscale()
+        plt.savefig("log_freq_real_log.pdf", format="pdf", bbox_inches="tight")
+        plt.show()
+
 
     def all_branch_length(self):
         """
@@ -883,10 +559,6 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
             if self.tree.degree[n] == 1 and not self.tree.nodes[n]['root']:
                 root = list(self.tree.neighbors(n))[0]
                 self.tree.nodes[n][mode] = 1
-                
-                
-                
-                
                 self.tree[root][n]['sub_volume'] = 0
 
             else:
@@ -946,6 +618,7 @@ class VtkMorphAnalyer(VtkNetworkAnalysis):
                        self.tree.nodes[n]['loc']) * self.vsize
             self.tree[node][n]['sub_volume'] = r_child + vol_child
 
+
 if __name__ == '__main__':
 
 
@@ -963,18 +636,8 @@ if __name__ == '__main__':
     vt.build()
     vt.build_morphologies()
 
-    vt.save(save_file)
-
-    vt.everything_both()
-
-    vt.plot()
-    vt.radius_real()
-    vt.length_real()
-
-    vt.strahler_real()
-
-    plt.savefig("sub_tree.pdf", format="pdf", bbox_inches="tight")
-
+    vt.plot_everything()
+    # plt.savefig("sub_tree.pdf", format="pdf", bbox_inches="tight")
     plt.show()
-
     vt.save(save_file)
+
