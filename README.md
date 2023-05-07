@@ -146,13 +146,9 @@ python result_analysis/simulate_flow_pressure.py
 with an inlet pressure (given in 100mmHg by default)
 
 ## Visualizations of Results
-3D gif animations of the reconstructed tree structure with rotation are available at 
-https://github.com/KidneyAnonymous/RenalArterialTree
-
-(Please give the page few seconds to load if the gifs are not shown to you immediately).
 
 ##  1. Gif results in 3D
-Here we show some animations of our generated renal arterial tree in ParaView. 
+Here we show some animations of our generated renal arterial tree in ParaView. (Please give the page few seconds to load if the gifs are not shown to you immediately). More visualizations are available at https://github.com/KidneyAnonymous/RenalArterialTree
 Different gifs represent the tubes are colored by different properties, e.g., radius, flow, pressure.
 These gifs are stoed in ```visualizations``` folder.
 
@@ -162,9 +158,3 @@ These gifs are stoed in ```visualizations``` folder.
  ![](visualizations/flow.gif) 
 ### Colored by pressure (in mmHg)
  ![](visualizations/pressure.gif) 
-
-## The flow and pressure coloring is sensitive to outliers. Therefore, we also rescale them by manually setting a smaller range 
-### Colored by rescaled flow (in $\mu m^3/s$)
- ![](visualizations/flow_rescaled.gif) 
-### Colored by rescaled pressure (in mmHg)
- ![](visualizations/pressure_rescaled.gif) 
