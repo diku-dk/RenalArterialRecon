@@ -147,8 +147,9 @@ with an inlet pressure (given in 100mmHg by default)
 
 ## Visualizations of Results
 
-Here we show some animations of our generated renal arterial tree in ParaView. (Please give the page few seconds to load if the gifs are not shown to you immediately). More visualizations are available at https://github.com/KidneyAnonymous/RenalArterialTree
-Different gifs represent the tubes are colored by different properties, e.g., radius, flow, pressure.
+Here we show some animations of our generated renal arterial tree in ParaView. (Please give the page few seconds to load if the gifs are not shown to you immediately). 
+
+More visualizations are available at https://github.com/KidneyAnonymous/RenalArterialTree. Different gifs represent the tubes are colored by different properties, e.g., radius, flow, pressure.
 These gifs are stoed in ```visualizations``` folder.
 
 ### Colored by radius (in $\mu m$)
