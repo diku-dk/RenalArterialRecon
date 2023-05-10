@@ -1,4 +1,8 @@
 # A Hybrid Approach to Full-Scale Reconstruction of Renal Arterial Network
+Xu, P., Holstein-Rathlou, NH., Søgaard, S.B. et al. A hybrid approach to full-scale reconstruction of renal arterial network. _Sci Rep_ **13**, 7569 (2023). 
+
+https://www.nature.com/articles/s41598-023-34739-y
+
 
 Here we provide the code files used for our paper and instructions. 
 
