@@ -162,3 +162,8 @@ These gifs are stoed in ```visualizations``` folder.
  ![](visualizations/flow.gif) 
 ### Colored by pressure (in mmHg)
  ![](visualizations/pressure.gif) 
+
+## Code references
+Part of the optimization code for GCO is adapted from
+
+[Shen, J., Faruqi, A. H., Jiang, Y., & Maftoon, N. (2021). Mathematical Reconstruction of Patient-Specific Vascular Networks Based on Clinical Images and Global Optimization. IEEE Access, 9, 20648–20661.](https://github.com/nmaftoon/VesselGen)
