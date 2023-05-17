@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 import scipy
 import pyvista
 import warnings
-import functools
-import nibabel as nib
-from scipy.ndimage import label
-from skimage import measure
+# import functools
+# import nibabel as nib
+# from scipy.ndimage import label
+# from skimage import measure
 import os
-import copy
+# import copy
 
 class VascularNetwork:
     """
